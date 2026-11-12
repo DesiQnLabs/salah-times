@@ -162,7 +162,7 @@ private fun QiblaScreen(latitude: Double, longitude: Double) {
         Text("N", color = gold, modifier = Modifier.align(Alignment.TopCenter).padding(top = 2.dp), fontWeight = FontWeight.Bold)
     }
     Spacer(Modifier.height(16.dp))
-    Text("${bearing.roundToInt()}° from true north", color = gold, fontSize = 23.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
+    Text("${bearing.roundToInt()}° from true north", color = gold, fontSize = 23.sp, fontWeight = FontWeight.Bold, modifier = Modifier)
     Spacer(Modifier.height(10.dp))
     Text(if (hasCompass) "Rotate the phone until the gold pointer faces forward. Compass sensors may report magnetic north; calibrate for best results." else "No rotation sensor detected. Use the bearing above with a true-north compass.", color = soft, textAlign = TextAlign.Center)
 }
