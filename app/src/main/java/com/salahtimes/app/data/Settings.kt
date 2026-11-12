@@ -4,6 +4,9 @@ import android.content.Context
 
 class Settings(context: Context) {
     private val prefs = context.getSharedPreferences("salah_settings", Context.MODE_PRIVATE)
+    var darkMode: Boolean
+        get() = prefs.getBoolean("dark_mode", true)
+        set(value) = prefs.edit().putBoolean("dark_mode", value).apply()
     var city: String
         get() = prefs.getString("city", "Alexandria, VA") ?: "Alexandria, VA"
         set(value) = prefs.edit().putString("city", value).apply()

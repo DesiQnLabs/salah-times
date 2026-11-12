@@ -1,6 +1,7 @@
 package com.salahtimes.app
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.*
@@ -40,10 +41,10 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import kotlin.math.*
 
-private val bg = Color(0xFF0B1018)
-private val panel = Color(0xFF171E29)
-private val gold = Color(0xFFE2BF83)
-private val soft = Color(0xFFA9B0BE)
+private val bg = Color(0xFF062F2B)
+private val panel = Color(0xFF10433D)
+private val gold = Color(0xFFB9D8A7)
+private val soft = Color(0xFFB9D0C8)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,26 +60,34 @@ fun SalahApp() {
     val settings = remember { Settings(context) }
     var refresh by remember { mutableIntStateOf(0) }
     var tab by remember { mutableIntStateOf(0) }
+    var darkMode by remember { mutableStateOf(settings.darkMode) }
     var now by remember { mutableStateOf(ZonedDateTime.now()) }
     LaunchedEffect(Unit) { while (true) { now = ZonedDateTime.now(); delay(1000) } }
     val prayers = remember(now.toLocalDate(), refresh) { PrayerCalculator.calculate(now.toLocalDate(), settings.latitude, settings.longitude, settings.method, settings.hanafi) }
     val tomorrow = remember(now.toLocalDate(), refresh) { PrayerCalculator.calculate(now.toLocalDate().plusDays(1), settings.latitude, settings.longitude, settings.method, settings.hanafi) }
     val next = (prayers + tomorrow).firstOrNull { it.name != "Sunrise" && it.time.isAfter(now) }
-    MaterialTheme(colorScheme = darkColorScheme(primary = gold, background = bg, surface = panel, onSurface = Color.White, onBackground = Color.White)) {
-        Scaffold(containerColor = bg, bottomBar = {
-            NavigationBar(containerColor = panel) {
-                listOf(Triple("Today", Icons.Rounded.Schedule, 0), Triple("Qibla", Icons.Rounded.Explore, 1), Triple("Settings", Icons.Rounded.Settings, 2)).forEach { (title, icon, id) ->
-                    NavigationBarItem(selected = tab == id, onClick = { tab = id }, icon = { Icon(icon, null) }, label = { Text(title) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = bg, selectedTextColor = gold, indicatorColor = gold))
+    val background = if (darkMode) bg else Color(0xFFF4F8F5)
+    val surface = if (darkMode) panel else Color.White
+    val foreground = if (darkMode) Color.White else Color(0xFF173D36)
+    val muted = if (darkMode) soft else Color(0xFF547268)
+    MaterialTheme(colorScheme = if (darkMode)
+        darkColorScheme(primary = gold, background = background, surface = surface, onSurface = foreground, onBackground = foreground, onSurfaceVariant = muted)
+        else lightColorScheme(primary = Color(0xFF236C56), background = background, surface = surface, onSurface = foreground, onBackground = foreground, onSurfaceVariant = muted)) {
+        Scaffold(containerColor = background, bottomBar = {
+            NavigationBar(containerColor = surface) {
+                listOf(Triple("Today", Icons.Rounded.Schedule, 0), Triple("Calendar", Icons.Rounded.DateRange, 1), Triple("Qibla", Icons.Rounded.Explore, 2), Triple("Settings", Icons.Rounded.Settings, 3)).forEach { (title, icon, id) ->
+                    NavigationBarItem(selected = tab == id, onClick = { tab = id }, icon = { Icon(icon, null) }, label = { Text(title) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = background, selectedTextColor = MaterialTheme.colorScheme.primary, indicatorColor = MaterialTheme.colorScheme.primary))
                 }
             }
         }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(22.dp)) {
-                Text("SALAH TIMES", color = gold, fontWeight = FontWeight.Bold, letterSpacing = 3.sp, fontSize = 14.sp)
+                Text("SALAH TIMES", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, letterSpacing = 3.sp, fontSize = 14.sp)
                 Spacer(Modifier.height(22.dp))
                 when(tab) {
                     0 -> TodayScreen(settings.city, now, prayers, next)
-                    1 -> QiblaScreen(settings.latitude, settings.longitude)
-                    else -> SettingsScreen(settings) { refresh++; PrayerAlerts.schedule(context) }
+                    1 -> CalendarScreen(settings, refresh)
+                    2 -> QiblaScreen(settings.latitude, settings.longitude)
+                    else -> SettingsScreen(settings, { refresh++; PrayerAlerts.schedule(context) }, darkMode, { darkMode = it; settings.darkMode = it })
                 }
             }
         }
@@ -90,7 +99,7 @@ private fun TodayScreen(city: String, now: ZonedDateTime, prayers: List<PrayerCa
     Text(city, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
     Text(now.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")), color = soft)
     Spacer(Modifier.height(24.dp))
-    Card(colors = CardDefaults.cardColors(containerColor = panel), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(25.dp)) {
             Text("NEXT PRAYER", color = gold, letterSpacing = 2.sp, fontSize = 12.sp)
             Spacer(Modifier.height(10.dp))
@@ -109,11 +118,23 @@ private fun TodayScreen(city: String, now: ZonedDateTime, prayers: List<PrayerCa
         Row(Modifier.fillMaxWidth().padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (prayer.name == "Sunrise") Icons.Rounded.WbSunny else Icons.Rounded.NightsStay, null, tint = if(selected) gold else soft, modifier = Modifier.size(21.dp))
             Spacer(Modifier.width(15.dp))
-            Text(prayer.name, color = if (selected) gold else Color.White, fontWeight = if(selected) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f), fontSize = 17.sp)
+            Text(prayer.name, color = if (selected) gold else MaterialTheme.colorScheme.onSurface, fontWeight = if(selected) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.weight(1f), fontSize = 17.sp)
             Text(prayer.time.format(DateTimeFormatter.ofPattern("h:mm a")), color = if(selected) gold else soft)
         }
         HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
     }
+    Spacer(Modifier.height(20.dp))
+    Text("Explore", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+    Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        listOf("🕋" to "Qibla", "🤲" to "Duas", "📿" to "Tasbih", "📜" to "Inspiration", "📔" to "Journal").forEach { (emoji, label) ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                Text(emoji, fontSize = 27.sp)
+                Text(label, fontSize = 10.sp, maxLines = 1)
+            }
+        }
+    }
+    Text("Feature icons are previews; only Qibla is currently functional.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
     Spacer(Modifier.height(14.dp))
     Text("Times are astronomical estimates. Confirm your local mosque's timetable, especially at high latitudes.", color = soft, fontSize = 12.sp)
 }
@@ -168,7 +189,7 @@ private fun QiblaScreen(latitude: Double, longitude: Double) {
 }
 
 @Composable
-private fun SettingsScreen(settings: Settings, updated: () -> Unit) {
+private fun SettingsScreen(settings: Settings, updated: () -> Unit, darkMode: Boolean, onDarkModeChange: (Boolean) -> Unit) {
     val context = LocalContext.current
     var city by remember { mutableStateOf(settings.city) }
     var lat by remember { mutableStateOf(settings.latitude.toString()) }
@@ -193,6 +214,10 @@ private fun SettingsScreen(settings: Settings, updated: () -> Unit) {
         } else message = "Location permission denied"
     }
     Text("Preferences", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("Dark mode", modifier = Modifier.weight(1f))
+        Switch(checked = darkMode, onCheckedChange = onDarkModeChange)
+    }
     Spacer(Modifier.height(18.dp))
     OutlinedTextField(city, { city = it }, label = { Text("Location label") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
     Spacer(Modifier.height(10.dp))
@@ -230,4 +255,41 @@ private fun SettingsScreen(settings: Settings, updated: () -> Unit) {
     if (message.isNotEmpty()) { Spacer(Modifier.height(10.dp)); Text(message, color = gold) }
     Spacer(Modifier.height(20.dp))
     Text("Prayer times use your device's timezone. If the selected coordinates are in another timezone, adjust your device timezone or use a local device. Notifications are reminders, not full Adhan recordings; Android may delay alarms when exact alarm access is unavailable.", color = soft, fontSize = 12.sp)
+}
+
+@Composable
+private fun CalendarScreen(settings: Settings, refresh: Int) {
+    val context = LocalContext.current
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    val prayers = remember(selectedDate, refresh) {
+        PrayerCalculator.calculate(selectedDate, settings.latitude, settings.longitude, settings.method, settings.hanafi)
+    }
+    Text("Prayer calendar", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+    Spacer(Modifier.height(8.dp))
+    Text("Browse prayer times for any date", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Spacer(Modifier.height(20.dp))
+    OutlinedButton(onClick = {
+        DatePickerDialog(context, { _, year, month, day -> selectedDate = LocalDate.of(year, month + 1, day) },
+            selectedDate.year, selectedDate.monthValue - 1, selectedDate.dayOfMonth).show()
+    }, modifier = Modifier.fillMaxWidth()) {
+        Icon(Icons.Rounded.DateRange, contentDescription = null)
+        Spacer(Modifier.width(10.dp))
+        Text(selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")))
+    }
+    Spacer(Modifier.height(16.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        OutlinedButton(onClick = { selectedDate = selectedDate.minusDays(1) }) { Text("Previous") }
+        OutlinedButton(onClick = { selectedDate = LocalDate.now() }) { Text("Today") }
+        OutlinedButton(onClick = { selectedDate = selectedDate.plusDays(1) }) { Text("Next") }
+    }
+    Spacer(Modifier.height(20.dp))
+    prayers.forEach { prayer ->
+        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(prayer.name, fontWeight = FontWeight.Medium)
+            Text(prayer.time.format(DateTimeFormatter.ofPattern("h:mm a")), color = MaterialTheme.colorScheme.primary)
+        }
+        HorizontalDivider()
+    }
+    Spacer(Modifier.height(16.dp))
+    Text("Calculated for ${settings.city} using your device timezone. Verify against your local mosque timetable.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
